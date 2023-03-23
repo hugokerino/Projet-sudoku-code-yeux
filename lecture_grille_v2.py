@@ -257,7 +257,7 @@ def test_grille(img):
 
 
 img_rot1 = cv2.imread("grille sudoku/4.jpg")
-img_rot2 = cv2.imread("grille sudoku/6.jpg")
+img_rot2 = cv2.imread("grille sudoku/6.jpg") #Problème
 
     
 img1 = cv2.imread("grille sudoku/1.jpg")
@@ -265,10 +265,10 @@ img2 = cv2.imread("grille sudoku/2.jpg")
 img3 = cv2.imread("grille sudoku/3.jpg") # Problème
 img4 = cv2.imread("grille sudoku/5.jpg") # Problème
 img5 = cv2.imread("grille sudoku/7.jpg")
-img6 = cv2.imread("grille sudoku/8.jpg")
+img6 = cv2.imread("grille sudoku/8.jpg") # Problème
 
 
-res=lecture_grille(img2)
+res=lecture_grille(img5)
 iprint(res[0][1])
 
 
