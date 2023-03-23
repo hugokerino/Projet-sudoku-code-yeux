@@ -48,25 +48,18 @@ def rotate(img,lines):
     
     listlines = list(np.copy(lines))
     listlines.sort(key=take_first)    
+    lines =np.array(listlines)
+
     center = tuple(map(lambda x: x/2, img.shape[:2]))
     
     x = center[0]
-    arr = [i for i in listlines if i[0][0] < x]
-    
-    """
-    global echap_rot
-    echap_rot = arr
-    print_line(img, arr)
-    """
-    
-    mid=len(arr)
-    
-    lines =np.array(listlines)
+    mid=get_index(lines[:,0,0],x)+1
     
     i=0
     maxligne=0
     
-    while(abs(lines[mid+i][0][0]-x) < 100):
+    angle = 0
+    while(abs(lines[mid+i][0][0]-x) < 150):
         i+=1
         line=lines[mid+i,0,:]
         x2,y2,x1,y1 = line
@@ -80,8 +73,8 @@ def rotate(img,lines):
             
             if(abs(angle2)<abs(angle)):
                 angle=angle2
-            #print(angle)
             
+      
     rotated = skt.rotate(img,angle,center=center) # rotation in counterclockwise direction
     rotated=img_as_ubyte(rotated)
     return(rotated)
@@ -106,7 +99,7 @@ def get_index(tab,elt):
     for i in range(1,len(tab)-1):
         if(tab[i] < elt < tab[i+1]):
             return i
-    return len(tab)
+    return len(tab)-1
             
 def get_case(img,lines):
     
@@ -132,23 +125,24 @@ def get_case(img,lines):
     vertical_lines = np.array(vertical_lines)
     horizontal_lines = np.array(horizontal_lines)
     
-    #print_line(img, horizontal_lines)
+    #imgcop=print_line(img, horizontal_lines)
+    #print_line(imgcop, vertical_lines)
     
     tabx=get_frame(vertical_lines[:,0,0])
-    taby=get_frame(horizontal_lines[:,0,3])
+    taby=get_frame(horizontal_lines[:,0,3])  
     
     meanx = np.mean(tabx)
     meany = np.mean(taby)
     
-    cv2.circle(img,(int(meanx),int(meany)),5,(255,0,0),3)
+    cv2.circle(img,(int(meanx),int(meany)),2,(255,0,0),1)
 
     
     case_x= np.array([i for i in tabx if meanx-220 < i < meanx+220])    
     len_v = len(case_x)
     deltax = case_x[1:len_v]-case_x[0:len_v-1]
     
-    taille_case =int(np.round(np.mean([i for i in deltax if i > np.mean(deltax)]))) 
-    taille_intercase = int(np.round(np.mean([i for i in deltax if i < np.mean(deltax)])))
+    taille_case =int(np.ceil(np.mean([i for i in deltax if i > np.mean(deltax)]))) 
+    taille_intercase = int(np.ceil(np.mean([i for i in deltax if i < np.mean(deltax)])))
     
     listcase=isole_case(img, taille_case, taille_intercase, tabx, taby)
     
@@ -163,34 +157,39 @@ def isole_case(img,taillecase,taille_intercase,tabx,taby):
     taille_case_actuel = 2*demi
     facteur_resize =  taille_case_voulue / taille_case_actuel
 
-    
     listcase=[]
     
     deltax=tabx[1:len(tabx)]-tabx[0:len(tabx)-1]
     deltay=taby[1:len(taby)]-taby[0:len(taby)-1]
-    """
-    global echap1
-    echap1 = deltax
     
-    global echap2
-    echap2 = deltay
-    
-    global echap3
-    echap3 = taby
     """
+    global echap_tabx
+    echap_tabx = tabx
+    
+    global echap_deltay
+    echap_deltay = deltay
+    
+    global echap_taby
+    echap_taby = taby
+    
+    print("taille case : "+str(taillecase))
+    """
+    
     for i,dx in enumerate(deltax):
-        if(taillecase-5<dx<taillecase+5):
+        if(taillecase-10<dx<taillecase+10):
             xo=tabx[i]+taillecase//2
             break
             
         
     
     for i,dy in enumerate(deltay):
-        if(taillecase-5<dy<taillecase+5):
+        if(taillecase-10<dy<taillecase+10):
             yo=taby[i]+taillecase//2
             break
     
-    
+    #print("xo,yo : "+str(xo)+'\t'+str(yo)+'\n')
+    #print(len(tabx))
+
     for j in range(9):
         for i in range(9):
             
@@ -201,15 +200,16 @@ def isole_case(img,taillecase,taille_intercase,tabx,taby):
             iy = get_index(taby, y)
             #Probleme si on atteint le dernier indice
             
-            
-            y = (taby[iy]+taby[iy+1])//2
-            x = (tabx[ix]+tabx[ix+1])//2
+            if(ix<len(tabx)-1):
+                x = (tabx[ix]+tabx[ix+1])//2
+            if(iy<len(taby)-1):
+                y = (taby[iy]+taby[iy+1])//2
             
             
             case = img_as_ubyte(skt.resize(img[y-demi:y+demi,x-demi:x+demi],(20,20),anti_aliasing=(True)))
             listcase.append(case)
             
-            #cv2.circle(img,(x,y),3,(255,0,0),2)
+            cv2.circle(img,(x,y),3,(255,0,0),2)
     
     return(listcase)
     
@@ -233,7 +233,6 @@ def lecture_grille(img):
     img=cv2.medianBlur(img,5)
     iprint(img)
 
-    
     lines = hough_line(img)
     rotated = rotate(img,lines)
     lines_rot = hough_line(rotated)
@@ -243,8 +242,6 @@ def lecture_grille(img):
     list_print(res)
     
     res=np.array(res)
-    global echap
-    echap = res
     
     res=np.reshape(res[:,:,:],(9,9,20,20))
     #res=np.transpose(res,(1,0,2,3))
@@ -262,13 +259,13 @@ img_rot2 = cv2.imread("grille sudoku/6.jpg") #Problème
     
 img1 = cv2.imread("grille sudoku/1.jpg")
 img2 = cv2.imread("grille sudoku/2.jpg")
-img3 = cv2.imread("grille sudoku/3.jpg") # Problème
+img3 = cv2.imread("grille sudoku/3.jpg") 
 img4 = cv2.imread("grille sudoku/5.jpg") # Problème
 img5 = cv2.imread("grille sudoku/7.jpg")
 img6 = cv2.imread("grille sudoku/8.jpg") # Problème
 
 
-res=lecture_grille(img5)
+res=lecture_grille(img3)
 iprint(res[0][1])
 
 
