@@ -27,226 +27,243 @@ from math import floor
 import random
 
 ### Ryan functions ###
+
+take_first=lambda x:x[0][0]
+take_second=lambda x:x[0][1]
+
 def iprint(img):
     plt.figure()
     plt.imshow(img,cmap='gray')
 
-def take_first(array):
-    return array[0][0]
+def print_line(img,lines):
+    img_copy = np.copy(img)
+    for line in lines:
+        for x2,y2,x1,y1 in line:
+            cv2.line(img_copy,(x1,y1),(x2,y2),(255,0,0),1)
+    iprint(img_copy)
+    return(img_copy)
 
-def take_second(array):
-    return array[0][1]
-
-def hough_line_v1(img):
-    minline = img.shape[0] // 10
-    accu = img.shape[0] // 100
+def hough_line(img):
     
-    img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)    
-    
+    #image 1920*1080
+    minline = img.shape[0] // 6
+    accu = img.shape[0] // 30
+        
     # Adaptative mean Thresholding 
-    binary = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    binary = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
     binary = cv2.bitwise_not(binary)
+    #iprint(binary)
     
     # Perform Hough Transform on the edges images
     lines = cv2.HoughLinesP(binary, 1, np.pi/180,accu, minLineLength=minline, maxLineGap=10)
     
     return lines
 
-
 def rotate(img,lines):
+    
+    # Il faut que la grille soit au centre de l'image
+    
+    listlines = list(np.copy(lines))
+    listlines.sort(key=take_first)    
+    lines =np.array(listlines)
+
     center = tuple(map(lambda x: x/2, img.shape[:2]))
-    max_ligne = 0 
-    Ux=np.array((1,0))
-    for line in lines :
-        x2,y2,x1,y1 = line[0]
+    
+    x = center[0]
+    mid=get_index(lines[:,0,0],x)+1
+    
+    i=0
+    maxligne=0
+    
+    angle = 0
+    while(abs(lines[mid+i][0][0]-x) < 150):
+        i+=1
+        line=lines[mid+i,0,:]
+        x2,y2,x1,y1 = line
         u=np.array((x2-x1,y2-y1))
         d = np.linalg.norm(u)
-        
-        if(d > max_ligne):
-            max_ligne = d
+        if(d > maxligne):
+            maxligne = d
+     
+            angle=np.degrees(np.arctan2(u[1],u[0])) % 90
+            angle2 = angle-90
             
-            if(np.dot(u,Ux)<0):
-                angle=np.degrees(np.dot(-u,Ux)/(np.linalg.norm(u)*np.linalg.norm(Ux)))
-            else:
-                angle=np.degrees(np.dot(u,Ux)/(np.linalg.norm(u)*np.linalg.norm(Ux)))
+            if(abs(angle2)<abs(angle)):
+                angle=angle2
             
-            
-            print(angle)
-            angle=angle%90
-            print(angle)
-
+      
     rotated = skt.rotate(img,angle,center=center) # rotation in counterclockwise direction
     rotated=img_as_ubyte(rotated)
     return(rotated)
-
-
-def resize(img,list_x): 
-    ## Je peux faire un resize en prenant en compte la taille effective des case ou alors
-    # en estimant la taille d'une case connaissant le lien taille grille taille en pixel.
+        
+def get_frame(tabx):
+    n = len(tabx)
+    copy = [tabx[0]]
+    for i in range(1,n-1):
+        if(tabx[i]-tabx[i-1]>1):
+            copy.append(tabx[i-1])
+            copy.append(tabx[i])
+            
+    copy.append(tabx[n-1])
+    copy=list(set(copy))
+    copy.sort()
     
-    deltax = list_x[1:len(list_x)]-list_x[0:len(list_x)-1]
-    meanx = np.mean(deltax)
-    meanDx = int(np.mean( [i for i in deltax if i >= meanx ]))
+    return(np.array(copy))
+        
+def get_index(tab,elt):
+    if(elt<tab[0]):
+        return 0 
+    for i in range(1,len(tab)-1):
+        if(tab[i] < elt < tab[i+1]):
+            return i
+    return len(tab)-1
+            
+def get_case(img,lines):
     
-    taille_case = meanDx
-    facteur_resize = (50/taille_case)
-    width = int(img.shape[1] * facteur_resize)
-    height = int(img.shape[0] *facteur_resize)
-    dim = (width,height)
-    resized = cv2.resize(img,dim)
+    center = tuple(map(lambda x: x/2, img.shape[:2]))
 
-    return resized
-
-
-def get_frame(lines):
     vertical_lines = []
     horizontal_lines = []
     for line in lines:
         for x1, y1, x2, y2 in line:
             angle = np.degrees(np.arctan2( y1-y2,  x1-x2))
-            if 89.9 < abs(int(angle)) < 90.1: # si Ligne verticales
+            if 89 < abs(int(angle)) < 91: # si Ligne verticales
                 vertical_lines.append(line)
-            if abs(int(angle)) < 0.1 or 179.9< abs(angle)<180.1: #si ligne horizontales
+            if abs(int(angle)) < 1 or 179< abs(angle)<181: #si ligne horizontales
                 horizontal_lines.append(line)
     
-    
-    len_v = len(vertical_lines)
-    len_h = len(horizontal_lines)
+    len_v,len_h = len(vertical_lines),len(horizontal_lines)
     if(len_v*len_h == 0):
             print("Lignes verticales ou horizontales non détectés")
-            exit(1)
-            
+            return ;
     
     vertical_lines.sort(key=take_first)
-    vertical_lines = np.array(vertical_lines)
     horizontal_lines.sort(key=take_second)
+    vertical_lines = np.array(vertical_lines)
     horizontal_lines = np.array(horizontal_lines)
     
-    tab_x = []
-    tab_y = []
+    #imgcop=print_line(img, horizontal_lines)
+    #print_line(imgcop, vertical_lines)
     
+    tabx=get_frame(vertical_lines[:,0,0])
+    taby=get_frame(horizontal_lines[:,0,3])  
     
-    # Pour ne prendre que les lignes intérieurs et extérieurs à chaque case
-    tab_x.append(vertical_lines[0,0,0])  
-    for j in range(len_v-2):
-        
-        if((vertical_lines[j+1,0,0]-vertical_lines[j,0,0])>2):
-            # Si l'écart entre une ligne et la prochaine est plus grad que deux cela veut dire qu'on est
-            # passé au cadre suivant, donc on peut les ajouter tous les deux au frames
-            tab_x.append(vertical_lines[j,0,0])
-            tab_x.append(vertical_lines[j+1,0,0])
-    tab_x.append(vertical_lines[len_v-1,0,0])  
+    meanx = np.mean(tabx)
+    meany = np.mean(taby)
     
-    tab_y.append(horizontal_lines[0,0,3])
-    for j in range(len_h-2):
-        if((horizontal_lines[j+1,0,3] - horizontal_lines[j,0,3])>2):
-            tab_y.append(horizontal_lines[j,0,3])
-            tab_y.append(horizontal_lines[j+1,0,3])
-    
-    tab_y.append(horizontal_lines[len_h-1,0,3])
-    
-    # Il faut éliminer les lignes abhérentes
-    
-    return([np.array(tab_x),np.array(tab_y)])
+    cv2.circle(img,(int(meanx),int(meany)),2,(255,0,0),1)
 
+    
+    case_x= np.array([i for i in tabx if meanx-220 < i < meanx+220])    
+    len_v = len(case_x)
+    deltax = case_x[1:len_v]-case_x[0:len_v-1]
+    
+    taille_case =int(np.ceil(np.mean([i for i in deltax if i > np.mean(deltax)]))) 
+    taille_intercase = int(np.ceil(np.mean([i for i in deltax if i < np.mean(deltax)])))
+    
+    listcase=isole_case(img, taille_case, taille_intercase, tabx, taby)
+    
+    return(listcase)
+    
+   
+def isole_case(img,taillecase,taille_intercase,tabx,taby):
+    
+    
+    demi = 25
+    taille_case_voulue = 40
+    taille_case_actuel = 2*demi
+    facteur_resize =  taille_case_voulue / taille_case_actuel
 
-def delete_outliers(tab_x):
-    #Supprime lignes abhérentes
-    n=len(tab_x)
-    mid = n/2    
+    listcase=[]
     
-    if(n<2):
-        exit(1)
-        
-    deltax = (tab_x[1:n])-np.array(tab_x[0:n-1])
-    meanx = np.mean(deltax)    
-    deltax2 = [i for i in deltax if i > meanx]
+    deltax=tabx[1:len(tabx)]-tabx[0:len(tabx)-1]
+    deltay=taby[1:len(taby)]-taby[0:len(taby)-1]
     
+    """
+    global echap_tabx
+    echap_tabx = tabx
     
-    # Cas ou il n'ya pas d'outliers
-    if(np.var(deltax2)<9):
-        # Si la variance est trop faible, cela signifie qu'il n'ya que deux groupes homogènes à la base
-        #donc pas  de valeurs abhérentes
-        return tab_x
+    global echap_deltay
+    echap_deltay = deltay
     
-    meanx = np.mean(deltax2)    
-    outliers = [i for i,v in enumerate(deltax) if v > meanx]
+    global echap_taby
+    echap_taby = taby
     
-    outliers1 = [i for i in outliers if i < mid]
-    outliers2 = [i for i in outliers if i > mid] 
+    print("taille case : "+str(taillecase))
+    """
     
-    if(len(outliers1)==0):
-        x=-1
-    else:
-        x = np.max( outliers1 )
-        
-    if(len(outliers2)==0):
-        y=len(tab_x)-1
-    else:
-        y = np.min( outliers2 )
-
-    return(tab_x[x+1:y+1])
-
-
-def isole_case_v2(img,list_x,list_y):
-    list_case = []
-    
-    deltax = list_x[1:len(list_x)]-list_x[0:len(list_x)-1]
-    deltay = list_y[1:len(list_y)]-list_y[0:len(list_y)-1]
-    
-    meanx = np.mean(deltax)
-    meany = np.mean(deltay)
-
-    meandx = int(np.mean([i for i in deltax if i<meanx ])) 
-    meanDx = int(np.mean( [i for i in deltax if i >= meanx ])) +1
-    meandy = int(np.mean([i for i in deltay if i<meany ])) 
-    meanDy = int(np.mean( [i for i in deltay if i >= meany ])) +1
-    
-    dim = 9 
-    demi = 20
-    xo,yo = list_x[0]+meandx+meanDx//2,list_y[0]+meandy+meanDy//2
-    for j in range(dim):
-        for i in range(dim):
+    for i,dx in enumerate(deltax):
+        if(taillecase-10<dx<taillecase+10):
+            xo=tabx[i]+taillecase//2
+            break
             
-            x= xo + (i+1)*meandx + i*meanDx
-            y= yo + (j+1)*meandy + j*meanDy
-                        
-            case= [img[y-demi:y+demi,x-demi:x+demi,:],(x,y)]
-            list_case.append(case)
+        
+    
+    for i,dy in enumerate(deltay):
+        if(taillecase-10<dy<taillecase+10):
+            yo=taby[i]+taillecase//2
+            break
+    
+    #print("xo,yo : "+str(xo)+'\t'+str(yo)+'\n')
+    #print(len(tabx))
+
+    for j in range(9):
+        for i in range(9):
             
-    return list_case
-
-
-def lecture_grille(img):
-    img  = cv2.medianBlur(img, 5)
-    lines = hough_line_v1(img)
-    #rotated = rotate(img,lines)
+            x= xo+i*taillecase+(i+1)*taille_intercase
+            y= yo+j*taillecase+(j+1)*taille_intercase
+            
+            ix = get_index(tabx, x)
+            iy = get_index(taby, y)
+            #Probleme si on atteint le dernier indice
+            
+            if(ix<len(tabx)-1):
+                x = (tabx[ix]+tabx[ix+1])//2
+            if(iy<len(taby)-1):
+                y = (taby[iy]+taby[iy+1])//2
+            
+            
+            case = img_as_ubyte(skt.resize(img[y-demi:y+demi,x-demi:x+demi],(20,20),anti_aliasing=(True)))
+            listcase.append(case)
+            
+            cv2.circle(img,(x,y),3,(255,0,0),2)
     
-    #lines = hough_line_v1(rotated)
-    frame = get_frame(lines)
-    list_x = delete_outliers(frame[0])
-
-    resized = resize(img,list_x)
-    #resized = cv2.medianBlur(resized,5)
+    return(listcase)
     
-    lines = hough_line_v1(resized)
-    frame = get_frame(lines)
-    list_x = delete_outliers(frame[0])
-    list_y = delete_outliers(frame[1])
-
-    list_case = isole_case_v2(resized,list_x,list_y)
+            
+def list_print(tabcase):
     
-    return list_case    
- 
-
-def print_list_images(listcase):
     plt.figure()
+    
+    
     for i in range(9):
         for j in range(9):
             plt.subplot(9,9,9*i+j+1)
             plt.axis("off")
-            plt.imshow(listcase[9*i+j][0])
+            plt.imshow(tabcase[9*i+j],cmap='gray')
+                        
+    
+        
+    
+def lecture_grille(img):
+    img = img_as_ubyte(rgb2gray(img))
+    img=cv2.medianBlur(img,5)
+    iprint(img)
 
+    lines = hough_line(img)
+    rotated = rotate(img,lines)
+    lines_rot = hough_line(rotated)
+    res = get_case(rotated, lines_rot)
+    
+    iprint(rotated)
+    list_print(res)
+    
+    res=np.array(res)
+    
+    res=np.reshape(res[:,:,:],(9,9,20,20))
+    #res=np.transpose(res,(1,0,2,3))
+    
+    return(res)
 
 
 ### Hugo functions ### 
@@ -304,8 +321,19 @@ def number_recognition(tab_num_to_reco, tab_num_model, orientation):
                     num = tab_num_model[k][1]
                     max_inter_corr = test
                     
-            tab_to_return[i,j] = num
-            #print(f"({i},{j}) = {num}")
+            #Orientation 90 ET 270 a verifier
+            #tab_to_return[i,j] = num
+            if (orientation == 0):
+                tab_to_return[i,j] = num
+            elif (orientation == 90):
+                tab_to_return[j,i-8] = num       
+            elif (orientation == 180):
+                tab_to_return[8-i,8-j] = num
+            elif (orientation == 270):
+                tab_to_return[8-j,i] = num    
+            else:
+                print("erreur orientation\n")
+                
     return tab_to_return
 
 
@@ -324,11 +352,11 @@ def write_sudoku(tab_num_find):
 
 def main_reco(tab_num_to_reco,orientation_initial):
     #Global parameters
-    x_resize = 30
-    y_resize = 30
+    x_resize = 20
+    y_resize = 20
 
     #Import data reference
-    data = Path().cwd() / 'data' / 'data_train' / 'num_police2bis'
+    data = Path().cwd()/ '..'/'Projet_sudoku'/ 'data' / 'data_train' / 'num_police2bis'
     k = 1
     tab_num = []
     for f in data.rglob("*.jpg"):
@@ -340,6 +368,8 @@ def main_reco(tab_num_to_reco,orientation_initial):
         tab_num.append((transform.rotate(img,270),k,270))
         k += 1
     
+    
+    plot_num_model(tab_num, 6)
     orientation_modif = find_orientation(tab_num_to_reco,tab_num)
     tab_num_find = number_recognition(tab_num_to_reco, tab_num, orientation_modif)
     write_sudoku(tab_num_find)
@@ -369,25 +399,26 @@ def plot_9nums_test(tab_num_test,i):
 
 ### Main function ###
 plt.close("all")
-x_resize = 40
-y_resize = 40
+x_resize = 20
+y_resize = 20
 
-img = cv2.imread("data/data_test/Sudoku/5.jpg")
+img = cv2.imread("../Projet_sudoku/data/data_test/Sudoku/5.jpg")
 
 iprint(img)
 list_case = lecture_grille(img)
-print_list_images(list_case)
+#iprint(list_case[0][1])
 
 #Import data test
-x_resize = 40
-y_resize = 40
 tab_num_test = np.zeros((9,9,x_resize,y_resize))
 
-for i in range(len(list_case)):
-    img = rgb2gray(img_as_float(list_case[i][0]))
-    x, y =  i//9, i%9 #Row, Column
-    tab_num_test[x,y] = img 
+for i in range(list_case.shape[0]):
+    for j in range(list_case.shape[1]): 
+        img = img_as_float(list_case[i][0])
+        #x, y =  i//9, i%9 #Row, Column
+        tab_num_test[i,j] = img 
 
-plot_9nums_test(tab_num_test, 9)
-
+plot_9nums_test(tab_num_test, 7)
 result = main_reco(tab_num_test, 0)
+
+plt.figure(8)
+plt.imshow(list_case[0][1])
