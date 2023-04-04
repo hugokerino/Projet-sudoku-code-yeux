@@ -1,4 +1,4 @@
-Ce projet permet différentes méthodes de résolution de sudoku :
+Resolution de sudoku
 
 1 [Complète et testée sur 7 exemples] : Méthode de résolution par backtracking naïve
 2 [NE MARCHE PAS ENCORE] : Méthode de résolution par backtracking optimisé (choix des cases les plus contraintes, prise en compte des possibilités)
