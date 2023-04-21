@@ -1,0 +1,28 @@
+Algorithm 2 int resolution(grid t grille, int nbvide)
+Entrees: grille, la grille de depart a remplir
+Entrees: nbvide, le nombre de cases vides
+1: Si nbvide==0 Alors
+	2: on a trouve la solution, retourner 1 et n de la fonction
+3: Sinon
+	4: Choisir les meilleurs indices i; j : ceux de la case la plus contrainte (moins de possibilites)
+	5: Mettre les m valeurs possibles pour cette case dans un tableau choix
+	6: //la case i; j peut prendre une des m valeurs stockees dans choix
+	7: Pour tout k = 1 a m Faire
+		8: //On essaye de mettre la valeur k en position i; j
+		9: grille:data[i][j] = choix[k]
+		10: //Appel de la fonction de resolution en ayant mis la valeur choix[k] dans la case i; j
+		11: //On fait progresser la solution avec une case vide en moins
+		12: Si resolution(grille,vide-1)==GAGNE Alors
+			13: //On a trouve une solution , on quitte la fonction
+			14: return GAGNE;
+		15: Sinon
+			16: //La valeur choix[k] ne donne pas de solution
+			17: //On remet la case i; j a vide, on est revenu au probleme avec nbvide cases vides
+			18: grille:data[i][j] =VIDE;
+		19: Fin Si
+		20: //On essaye une autre valeur
+	21: Fin Pour
+	22: //On a teste toutes les valeurs possibles pour la case i; j et aucune ne convient
+	23: //On quitte la fonction a moinsn de modier le choix precedent e ectue pour nbvide + 1
+24: return IMPOSSIBLE ;
+25: Fin Si
